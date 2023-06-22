@@ -11,7 +11,7 @@
  "prob_thresh": 0,
  "USE_MAX": "False",
  "verbose": "True",
- "datafile": "data/sphere_250.csv",
+ "datafile": "data/torus_12K.csv",
  "H_test": "False",
- "SHOW_EMBEDDING": "3d"
+ "SHOW_EMBEDDING": "1d"
 }

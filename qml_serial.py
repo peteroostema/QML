@@ -23,6 +23,11 @@ import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import igraph as ig
 
+import sklearn.preprocessing as skp
+import cProfile
+from pycallgraph2 import PyCallGraph
+from pycallgraph2.output import GraphvizOutput
+
 
 # ------------------------------------
 # Functions
@@ -209,6 +214,25 @@ def qmaniGetU_nnGL( k, dt, epsilon, verbose=0, trunc=0 ):
     D_normalizer = sp.sparse.diags(np.asarray(np.transpose(np.sqrt(1/Da)))[0], format="csc")
     M = D_normalizer @ La @ D_normalizer
 
+    # print("Laplacians")
+    # print(L)
+    # print(np.linalg.norm(L[:,:],1), np.linalg.norm(L[:,:],2), np.linalg.norm(L[:,:],np.inf))
+    # print("normalized")
+    # print(La)
+    # print(np.linalg.norm(La[:,:],1), np.linalg.norm(La[:,:],2), np.linalg.norm(La[:,:],np.inf))
+    # print("markov")
+    # print(M)
+    # print(np.linalg.norm(M[:,:],1), np.linalg.norm(M[:,:],2), np.linalg.norm(M[:,:],np.inf))
+    # print(M.size)
+    # print(np.linalg.norm(M[:,3],2),np.linalg.norm(M[:,2],2),np.linalg.norm(M[:,1],2))
+    # # print("Ds")
+    # # print(D)
+    # # print(D_normalizer)
+    # print("sk normal")
+    # Sn = skp.normalize(L, norm='l2')
+    # print(Sn)
+    # print(np.linalg.norm(Sn[:,:],2))
+
     if verbose>0:
         print("Eigendecomposition")
 
@@ -219,6 +243,11 @@ def qmaniGetU_nnGL( k, dt, epsilon, verbose=0, trunc=0 ):
     v = v[:,idx]
     v_inv = v.conj().T
 
+    # print("w v") # compuatation of propagator from graph laplacian
+    # print(w, w.size)
+    # print(v, v.size)
+    # print(idx)
+
     if trunc>0:
         print("Doing spectral truncation to", trunc )
         wt = w[:trunc]
@@ -226,10 +255,12 @@ def qmaniGetU_nnGL( k, dt, epsilon, verbose=0, trunc=0 ):
         v_invt = v_inv[:trunc,:]
 
         M_new = sp.sparse.diags( np.exp( 1j*dt*np.real(np.sqrt((4*(1-wt))/epsilon)) ) )
+        # print(M_new)
 
         Udt = vt @ M_new @ v_invt
     else:
         M_new = sp.sparse.diags( np.exp( 1j*dt*np.real(np.sqrt((4*np.abs(1-w))/epsilon)) ), format="csc" )
+        # print(M_new)
 
         Udt = v @ M_new @ v_inv
 
@@ -458,6 +489,10 @@ def propagate_PCA(pt, qml_params, h, Npts, Us, PCA_map, x, k):
         neighbors_idx = neighbors_idx.astype(int)
         orig_pt_idx = orig_pt_idx.astype(int)
         mappedX = x[neighbors_idx,] @ PCA_map[pt]
+        # print("x pca") # PCA, rotation matrix from data coordinates to reduced space
+        # print(mappedX)
+        # print(x[neighbors_idx,])
+        # print(PCA_map[pt])
 
         # compute distance matrix in PCA space
         kpca = spatial.distance.squareform(spatial.distance.pdist(mappedX, 'sqeuclidean'))
@@ -630,19 +665,20 @@ def run(qml_params):
 
                 # store local PCA projection matrix for this point
                 PCA_map[pt] = mapping['map']
+                # print("pca map ", PCA_map[pt])
 
                 # if verbose, output progress
                 if verbose:
                     if pt % 50==0:
                         print("PCA done for " + str(pt) + "/" + str(Npts))
 
-# QPROP
-        # compute quantum propagator
+# QPROP 
+        # compute quantum propagator 
         Udt, D_normalizer = qmaniGetU_nnGL( k, dt, epsilon, verbose, trunc=0 )
         D_normalizer_inv = spinv(D_normalizer)
         Us = D_normalizer @ Udt @ (D_normalizer_inv)
 
-# Propagate
+# Propagate 
         # container to store destination points after propagation
         peak_idxs = dict()
 
@@ -653,6 +689,8 @@ def run(qml_params):
         else:
             for pt in range(Npts):
                 peak_idxs[pt] = propagate(pt, qml_params, h, Npts, Us, x, k)
+        # print("peaks") # closest point in matrix of propagations and starting momentas
+        # print(peak_idxs)
 
 
 # Fill in geodesic distance matrix
@@ -816,7 +854,7 @@ if __name__ == '__main__':
         - Saves geodesic distance matrix to file "f.out", where "f" is the input filename
         - Optionally, also plots an embedding of the graph if SHOW_EMBEDDING = 2 or 3 (this number sets the embedding dimension) in the input file
     """
-
+    print(sys.argv)
     assert (len(sys.argv)==2), "QML takes one argument, an input filename."
     print('------------------------------------------------------')
     print('QML Loading parameters from file ' + sys.argv[1] + '...')
@@ -849,6 +887,11 @@ if __name__ == '__main__':
 
         # run QML
         D = run(qml_params)
+        # cProfile.run('run(qml_params)', sort='cumtime')
+        # cProfile.run('run(qml_params)')
+        # pycallgraph2.PyCallGraph(output='callgraph.png') : run(qml_params)
+        # with PyCallGraph(output=GraphvizOutput()):
+        #     run(qml_params)
 
         # save geodesic distance matrix to file
         fname = "{}.out".format(sys.argv[1])
